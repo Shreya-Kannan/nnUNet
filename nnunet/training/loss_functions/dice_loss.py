@@ -18,9 +18,10 @@ from nnunet.training.loss_functions.TopK_loss import TopKLoss
 from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
+import matplotlib.pyplot as plt
 from torch import nn
 import numpy as np
-
+from nnunet.registration.losses import Grad
 
 class GDL(nn.Module):
     def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.,
@@ -165,6 +166,11 @@ class SoftDiceLoss(nn.Module):
         self.smooth = smooth
 
     def forward(self, x, y, loss_mask=None):
+        """
+        Tensor shapes:
+            x: [2, 7, 32, 208, 256]
+            y: [2, 1, 32, 208, 256]
+        """
         shp_x = x.shape
 
         if self.batch_dice:
@@ -318,21 +324,26 @@ class DC_and_CE_loss(nn.Module):
         self.log_dice = log_dice
         self.weight_dice = weight_dice
         self.weight_ce = weight_ce
+        self.weight_reg = 0.01
         self.aggregate = aggregate
         self.ce = RobustCrossEntropyLoss(**ce_kwargs)
+        self.int_downsize = 2
 
         self.ignore_label = ignore_label
+
+        self.reg = Grad('l2', self.int_downsize).loss
 
         if not square_dice:
             self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
         else:
             self.dc = SoftDiceLossSquared(apply_nonlin=softmax_helper, **soft_dice_kwargs)
 
-    def forward(self, net_output, target):
+    def forward(self, net_output, target, flow):
         """
         target must be b, c, x, y(, z) with c=1
         :param net_output:
         :param target:
+        :param flowfield
         :return:
         """
         if self.ignore_label is not None:
@@ -352,8 +363,12 @@ class DC_and_CE_loss(nn.Module):
             ce_loss *= mask[:, 0]
             ce_loss = ce_loss.sum() / mask.sum()
 
+        #reg_loss = self.reg(target,flow) if self.weight_reg != 0 else 0
+
         if self.aggregate == "sum":
-            result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
+            #result =  dc_loss
+            result = self.weight_ce * ce_loss + self.weight_dice * dc_loss 
+            #result = self.weight_ce * ce_loss + self.weight_dice * dc_loss + self.weight_reg * reg_loss
         else:
             raise NotImplementedError("nah son") # reserved for other stuff (later)
         return result

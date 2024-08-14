@@ -28,16 +28,20 @@ class MultipleOutputLoss2(nn.Module):
         self.weight_factors = weight_factors
         self.loss = loss
 
-    def forward(self, x, y):
+    def forward(self, x, y, flow_field=None):
+
+        """
         assert isinstance(x, (tuple, list)), "x must be either tuple or list"
         assert isinstance(y, (tuple, list)), "y must be either tuple or list"
         if self.weight_factors is None:
             weights = [1] * len(x)
         else:
             weights = self.weight_factors
-
+        
         l = weights[0] * self.loss(x[0], y[0])
         for i in range(1, len(x)):
             if weights[i] != 0:
                 l += weights[i] * self.loss(x[i], y[i])
+        """
+        l = self.loss(x,y[0], flow_field)
         return l

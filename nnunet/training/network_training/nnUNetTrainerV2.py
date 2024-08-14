@@ -23,6 +23,7 @@ from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
+#from nnunet.registration import networks
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import default_2D_augmentation_params, \
     get_patch_size, default_3D_augmentation_params
@@ -46,7 +47,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 1000
-        self.initial_lr = 1e-2
+        self.initial_lr = 1e-3
         self.deep_supervision_scales = None
         self.ds_loss_weights = None
 
@@ -176,7 +177,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         :return:
         """
         target = target[0]
-        output = output[0]
+        #output = output[0]
         return super().run_online_evaluation(output, target)
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
@@ -229,6 +230,9 @@ class nnUNetTrainerV2(nnUNetTrainer):
         :param run_online_evaluation:
         :return:
         """
+
+        #If i recall the shape of output is [b,7,30,_,_] and targer is [b,1,30,_,_]
+        
         data_dict = next(data_generator)
         data = data_dict['data']
         target = data_dict['target']
@@ -246,6 +250,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
             with autocast():
                 output = self.network(data)
                 del data
+                #output_registered, preint_flow = self.registration_network(output)
+                #l = self.loss(output, target, preint_flow)
                 l = self.loss(output, target)
 
             if do_backprop:
